@@ -4,7 +4,7 @@
     "href": "index.html",
     "title": "ISSS624",
     "section": "",
-    "text": "Welcome to ISSS624 Geospatial Analytics Application.\nIn this webpage, I am going to share with you my learning journey of geospatial analytic.\nThis is a Quarto website.\nTo learn more about Quarto websites visit https://quarto.org/docs/websites.\n\n1 + 1\n\n[1] 2"
+    "text": "Welcome to ISSS624 Geospatial Analytics Application.\nIn this webpage, I am going to share with you my learning journey of geospatial analytic.\nEnjoy!"
   },
   {
     "objectID": "about.html",
@@ -233,23 +233,23 @@
   {
     "objectID": "In-class_Ex/In-class_Ex1/In-class_Ex1.html",
     "href": "In-class_Ex/In-class_Ex1/In-class_Ex1.html",
-    "title": "In-class Exercise 1",
+    "title": "In-class Exercise 1: First Date with Geospatial Data Analytics",
     "section": "",
-    "text": "pacman::p_load(sf, tidyverse)"
+    "text": "the code chunk below load the following packages:\n\ntmap: thematic mapping.\nsf: for geospatial data handling.\ntidyverse: for non-spatial data handling.\n\n\npacman::p_load(tmap, sf, tidyverse)"
   },
   {
     "objectID": "In-class_Ex/In-class_Ex1/In-class_Ex1.html#getting-started",
     "href": "In-class_Ex/In-class_Ex1/In-class_Ex1.html#getting-started",
-    "title": "In-class Exercise 1",
+    "title": "In-class Exercise 1: First Date with Geospatial Data Analytics",
     "section": "",
-    "text": "pacman::p_load(sf, tidyverse)"
+    "text": "the code chunk below load the following packages:\n\ntmap: thematic mapping.\nsf: for geospatial data handling.\ntidyverse: for non-spatial data handling.\n\n\npacman::p_load(tmap, sf, tidyverse)"
   },
   {
     "objectID": "In-class_Ex/In-class_Ex1/In-class_Ex1.html#importing-data",
     "href": "In-class_Ex/In-class_Ex1/In-class_Ex1.html#importing-data",
-    "title": "In-class Exercise 1",
+    "title": "In-class Exercise 1: First Date with Geospatial Data Analytics",
     "section": "Importing Data",
-    "text": "Importing Data\n\nodbus = read_csv(\"data/aspatial/origin_destination_bus_202308.csv\")\n\nRows: 5709512 Columns: 7\n── Column specification ────────────────────────────────────────────────────────\nDelimiter: \",\"\nchr (5): YEAR_MONTH, DAY_TYPE, PT_TYPE, ORIGIN_PT_CODE, DESTINATION_PT_CODE\ndbl (2): TIME_PER_HOUR, TOTAL_TRIPS\n\nℹ Use `spec()` to retrieve the full column specification for this data.\nℹ Specify the column types or set `show_col_types = FALSE` to quiet this message."
+    "text": "Importing Data\n\nImporting OD data\nimport data of Passenger Volume by Origin Destination Bus Stop dataset from LTA Data Mall utilising read_csv() of readr package.\n\nodbus = read_csv(\"data/aspatial/origin_destination_bus_202308.csv\")\n\nRows: 5709512 Columns: 7\n── Column specification ────────────────────────────────────────────────────────\nDelimiter: \",\"\nchr (5): YEAR_MONTH, DAY_TYPE, PT_TYPE, ORIGIN_PT_CODE, DESTINATION_PT_CODE\ndbl (2): TIME_PER_HOUR, TOTAL_TRIPS\n\nℹ Use `spec()` to retrieve the full column specification for this data.\nℹ Specify the column types or set `show_col_types = FALSE` to quiet this message."
   },
   {
     "objectID": "In-class_Ex/In-class_Ex1/data/geospatial/MPSZ-2019.html",
