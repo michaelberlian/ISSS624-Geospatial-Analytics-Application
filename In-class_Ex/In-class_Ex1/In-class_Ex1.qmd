@@ -1,0 +1,15 @@
+---
+title: "In-class Exercise 1"
+---
+
+## Getting Started
+
+```{r}
+pacman::p_load(sf, tidyverse)
+```
+
+## Importing Data
+
+```{r}
+odbus = read_csv("data/aspatial/origin_destination_bus_202308.csv")
+```
