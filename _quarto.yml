@@ -11,6 +11,8 @@ website:
             href: Hands-on_Ex/Hands-on_Ex1/Hands-on_Ex1.html
           - text: Hands-on Exercise 2
             href: Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex2.html
+          - text: Hands-on Exercise 3
+            href: Hands-on_Ex/Hands-on_Ex2/Hands-on_Ex3.html
       - text: In-class Exercises
         menu:
           - text: In-class Exercise 1
@@ -19,7 +21,8 @@ website:
             href: In-class_Ex/In-class_Ex2/In-class_Ex2.html
       - text: Take-home Exercises
         menu:
-          - text: Nothing Here Yet :)
+          - text: Take-Home Exercise 1
+            href: Take-Home_Ex/Take-Home_Ex1/Take-Home_Ex1.html
     right:
       - href: index.qmd
         text: Home

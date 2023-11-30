@@ -1,0 +1,127 @@
+---
+title: "Take Home Exercise 1"
+---
+
+## Getting Started
+
+```{r}
+pacman::p_load(sf, tmap, sfdep, tidyverse, mapview)
+```
+
+Reading Geospatial Data
+
+```{r}
+busStops <- st_read(dsn = "data/geospatial",
+                 layer = "BusStop")
+```
+
+Plotting Bus Stop points
+
+```{r}
+mapview(busStops, cex = 3, alpha = .5, popup = NULL)
+```
+
+Hexagonal Grid Creation
+
+```{r}
+grid = st_make_grid(busStops, c(500), what = "polygons", square = FALSE)
+# To sf and add grid ID
+grid_sf = st_sf(grid) %>%
+  # add grid ID
+  mutate(grid_id = 1:length(lengths(grid)))
+```
+
+```{r}
+grid_sf$n_colli = lengths(st_intersects(grid_sf, busStops))
+
+# remove grid without value of 0 (i.e. no points in side that grid)
+grid_count = filter(grid_sf,n_colli > 0 )
+```
+
+```{r}
+tmap_mode("view")
+
+map_honeycomb = tm_shape(grid_count) +
+  tm_fill(
+    col = "n_colli",
+    palette = "Blues",
+    style = "cont",
+    title = "Number of collisions",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.6,
+    popup.vars = c(
+      "Number of collisions: " = "n_colli"
+    ),
+    popup.format = list(
+      n_colli = list(format = "f", digits = 0)
+    )
+  ) +
+  tm_borders(col = "grey40", lwd = 0.7)
+
+map_honeycomb
+```
+
+Reading Aspatial Data
+
+```{r}
+bus_Aug <- read_csv("data/aspatial/origin_destination_bus_202308.csv")
+bus_Sep <- read_csv("data/aspatial/origin_destination_bus_202309.csv")
+bus_Okt <- read_csv("data/aspatial/origin_destination_bus_202310.csv")
+```
+
+aspatial data prep
+
+```{r}
+bus_Aug_weekday_mpeak <- bus_Aug %>%
+                          filter(DAY_TYPE == "WEEKDAY", 
+                                 TIME_PER_HOUR >= 6, 
+                                 TIME_PER_HOUR <= 9) %>%
+                          group_by(ORIGIN_PT_CODE) %>%
+                          summarise(TOTAL_TRIPS_COUNT = sum(TOTAL_TRIPS))
+```
+
+joining aspatial and geospatial
+
+```{r}
+grid_count$list <- st_intersects(grid_count, busStops)
+ugrid <- grid_count %>%
+              unnest(list) %>%
+              select(grid,grid_id,list)
+ugrid$list <- busStops$BUS_STOP_N[ugrid$list]
+```
+
+```{r}
+busStops_join <- busStops %>%
+              select("BUS_STOP_N") 
+```
+
+```{r}
+visual_Aug_weekday_mpeak <- left_join(ugrid,bus_Aug_weekday_mpeak, by = c("list" = "ORIGIN_PT_CODE")) %>%
+                              group_by(grid_id) %>%
+                              summarise(TOTAL_TRIPS_COUNT = sum(TOTAL_TRIPS_COUNT))
+```
+
+```{r}
+tmap_mode("view")
+
+map_honeycomb = tm_shape(visual_Aug_weekday_mpeak) +
+  tm_fill(
+    col = "TOTAL_TRIPS_COUNT",
+    palette = "Blues",
+    style = "cont",
+    title = "Number of collisions",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.6,
+    popup.vars = c(
+      "Number of trips: " = "TOTAL_TRIPS_COUNT"
+    ),
+    popup.format = list(
+      TOTAL_TRIPS_COUNT = list(format = "f", digits = 0)
+    )
+  ) +
+  tm_borders(col = "grey40", lwd = 0.7)
+
+map_honeycomb
+```

@@ -26,6 +26,11 @@ mpsz = st_read(dsn = "data/geospatial",
                   layer = "MP14_SUBZONE_WEB_PL")
 ```
 
+```{r}
+head(mpsz,5)
+mpsz$geometry
+```
+
 ### Importing polyline feature data
 
 ```{r}
@@ -37,6 +42,12 @@ cyclingpath = st_read(dsn = "data/geospatial",
 
 ```{r}
 preschool = st_read("data/geospatial/PreSchoolsLocation.kml")
+```
+
+```{r}
+head(preschool,5)
+preschool$Description[1]
+preschool$geometry
 ```
 
 ## **Checking Content of A Simple Feature Data Frame**
@@ -170,10 +181,18 @@ mpsz3414 <- mpsz3414 %>%
   mutate(`PreSch Density` = `PreSch Count`/Area * 1000000)
 ```
 
+```{r}
+summary(mpsz3414$`PreSch Density`)
+```
+
 ## EDA
 
 ```{r}
 hist(mpsz3414$`PreSch Density`)
+```
+
+```{r}
+
 ```
 
 ```{r}
@@ -186,6 +205,18 @@ ggplot(data=mpsz3414,
        subtitle= "There are many planning sub-zones with a single pre-school, on the other hand, \nthere are two planning sub-zones with at least 20 pre-schools",
       x = "Pre-school density (per km sq)",
       y = "Frequency")
+```
+
+```{r}
+ggplot(data=mpsz3414, 
+       aes(x= as.numeric(`PreSch Count`)))+
+  geom_histogram(bins=20, 
+                 color="black", 
+                 fill="light blue") +
+  labs(title = "Are pre-school even distributed in Singapore?",
+       subtitle= "There are many planning sub-zones with a single pre-school, on the other hand, \nthere are two planning sub-zones with at least 20 pre-schools",
+      x = "Pre-school count",
+      y = "Frequency (number of subzones)")
 ```
 
 ```{r}
@@ -232,9 +263,16 @@ mpsz
 popdata <- read_csv("data/aspatial/respopagesextod2011to2020.csv")
 ```
 
+```{r}
+head(popdata,5)
+popdata$Time[1]
+```
+
 ### Data Preparation
 
 #### Data Wrangling
+
+pivot wider = transpose
 
 ```{r}
 popdata2020 <- popdata %>%
@@ -267,12 +305,20 @@ popdata2020 <- popdata2020 %>%
 ```
 
 ```{r}
+head(popdata2020,5)
+```
+
+```{r}
 mpsz_pop2020 <- left_join(mpsz, popdata2020,
                           by = c("SUBZONE_N" = "SZ"))
 ```
 
 ```{r}
 write_rds(mpsz_pop2020, "data/rds/mpszpop2020.rds")
+```
+
+```{r}
+head(mpsz_pop2020,5)
 ```
 
 ## Choropleth Tmap

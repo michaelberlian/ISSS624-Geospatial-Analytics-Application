@@ -201,9 +201,19 @@ str(wm_d62)
 table(hunan$County, card(wm_d62))
 ```
 
+To check if every nodes is connected, 1 graph in total, since we using the max distance between cities to have minimum 1 neighbour, our graph should be all connected
+
 ```{r}
 n_comp <- n.comp.nb(wm_d62)
 n_comp$nc
+
+```
+
+the k1 = k nearest neighbor with k=1 neigbours, therefore, we have a lot of sub graph
+
+```{r}
+n_comp_k1 <- n.comp.nb(k1)
+n_comp_k1$nc
 ```
 
 ```{r}
