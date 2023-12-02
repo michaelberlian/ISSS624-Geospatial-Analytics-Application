@@ -1,0 +1,83 @@
+---
+title: "Calibrating Spatial Interaction Models with R"
+date: "2 December 2023"
+date-modified: "last-modified"
+---
+
+## overview
+
+analysing public bus passenger flow in morning peak
+
+## Getting Started
+
+```{r}
+pacman::p_load(tmap, sf, sp, DT, performance, reshape2, ggpubr, units, tidyverse)
+```
+
+### Data Import
+
+```{r}
+mpsz <- st_read(dsn = "data/geospatial",
+                   layer = "MPSZ-2019") %>%
+  st_transform(crs = 3414)
+mpsz
+```
+
+```{r}
+mpsz_sp <- as(mpsz,"Spatial")
+mpsz_sp
+```
+
+```{r}
+dist <- spDists(mpsz_sp,
+                longlat = FALSE)
+```
+
+```{r}
+head(dist, n=c(8,8))
+```
+
+```{r}
+sz_names <- mpsz$SUBZONE_C
+```
+
+```{r}
+colnames(dist) <- paste0(sz_names)
+rownames(dist) <- paste0(sz_names)
+```
+
+```{r}
+distPair <- melt(dist) %>%
+  rename(dist = value)
+head(distPair, 10)
+```
+
+```{r}
+distPair %>%
+  filter(dist > 0) %>%
+  summary()
+```
+
+```{r}
+distPair$dist <- ifelse(distPair$dist == 0,
+                        50, distPair$dist)
+```
+
+```{r}
+distPair <- distPair %>%
+  rename(orig = Var1, dest = Var2)
+```
+
+```{r}
+pop <- read_csv("data/aspatial/pop.csv")
+```
+
+```{r}
+pop <- pop %>%
+  left_join(mpsz,
+            by = c("PA" = "PLN_AREA_N",
+                   "SZ" = "SUBZONE_N")) %>%
+  select (1:6) %>%
+  rename (SZ_NAME = SZ,
+          SZ = SUBZONE_C)
+```
