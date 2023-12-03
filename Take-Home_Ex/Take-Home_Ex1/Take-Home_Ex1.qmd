@@ -7,10 +7,12 @@ date-modified: "last-modified"
 ## Getting Started
 
 ```{r}
-pacman::p_load(sf, tmap, sfdep, tidyverse, mapview)
+pacman::p_load(sf, tmap, sfdep, tidyverse)
 ```
 
 ### Geospatial Data
+
+bus stop geospatial data in singapore
 
 ```{r}
 busStops <- st_read(dsn = "data/geospatial",
@@ -27,6 +29,8 @@ tm_shape(busStops) +
 ```
 
 ### Hexagonal Grid Creation
+
+creating our own hexagonal gridd
 
 ```{r}
 grid = st_make_grid(busStops, c(500), what = "polygons", square = FALSE)
@@ -77,6 +81,10 @@ grid_count_rm <- grid_count %>%
 ```
 
 ### Aspatial Data
+
+importing the bus trip data of August 2023.
+
+un-comment the one of other 2 lines and comment the first line using (cmd/ctrl+shift+c) to switch the data set into the other months.
 
 ```{r}
 busTrips <- read_csv("data/aspatial/origin_destination_bus_202308.csv")
@@ -146,6 +154,8 @@ BusTrips_comb <- busTripsDayMorning %>%
 
 ### Geospatial Data Wrangling
 
+connecting the bus stop and the hexagonal grids
+
 ```{r}
 grid_bus <- st_join(grid_count_rm,busStops,join = st_contains) %>%
   unnest() %>%
@@ -154,6 +164,10 @@ grid_bus$BUS_STOP_N <- as.factor(grid_bus$BUS_STOP_N)
 ```
 
 ### Joining aspatial and geospatial
+
+combine the number of trip data and the geospatial data.
+
+transforming the data based on the hexagonal grid id
 
 ```{r}
 Trips <- left_join(BusTrips_comb,grid_bus,
@@ -181,6 +195,8 @@ TripsPerBusStop <- Trips %>%
           WeekendEveningTrips = WeekendEveningTrips/n_bus)
 ```
 
+Using log to see if there is skewness
+
 ```{r}
 TripsLog <- Trips %>%
   mutate (WeekdayMorningTrips = log(WeekdayMorningTrips),
@@ -190,6 +206,8 @@ TripsLog <- Trips %>%
 ```
 
 ## Visualising
+
+initial look of the overall number of trips in the peak times
 
 ```{r}
 tmap_mode("view")
@@ -215,6 +233,8 @@ The plot above are from total bus trip per origin bus station.
 From the plot of total trips above, can be seen that bus trips are spreaded around across the country. However, there are several clusters can be seen.
 
 ### Total Trips
+
+plotting the trips of each peak hours
 
 ```{r}
 weekday_morning <- tm_shape(Trips) +
@@ -285,6 +305,8 @@ tmap_arrange(weekday_morning, weekday_afternoon, weekend_morning, weekend_evenin
 The plot above are segragated trips divided into 4 categories: Weekday morning, Weekday afternoon, Weekend morning, and weekend evening. There are only minimal differences between them. However a noticable different is on the east side. The east side quantile is lower on the evening or afternoon than in the morning both on weekend and weekday. Also, in the central can be seen that they have a higher quantile during the afternoon and evening.
 
 ### Total Trips per Bus Stop
+
+plotting the number of trips per peak hours per number of bus station
 
 ```{r}
 weekday_morning_per_stop <- tm_shape(TripsPerBusStop) +
@@ -357,6 +379,8 @@ the plot above shows the differences of total number of trips based of the time 
 
 ### Log value of trips
 
+plotting the log number of total trips for each peak hour times to see the skewness.
+
 ```{r}
 weekday_morning_log <- tm_shape(TripsLog) +
   tm_fill(
@@ -424,11 +448,15 @@ tmap_arrange(weekday_morning_log, weekday_afternoon_log,
             ncol=2, nrow=2)
 ```
 
-The above plot shows the value of total number of trip per hexagon after applying log to the number. There are also minimal differences between them.
+The above plot shows the value of total number of trip per hexagon after applying log to the number. There are also minimal differences between them and previous plots.
 
 ## **Local Indicators of Spatial Association (LISA) Analysis**
 
+perfoming LISA analysis to see the correlation between hexagonal grids
+
 ### Spatial Weight
+
+using the inverse distance based weight to see the correlation between the hexagons.
 
 ```{r}
 wm_idw <- Trips %>%
@@ -441,6 +469,8 @@ wm_idw <- Trips %>%
 ```
 
 ### Local Moran
+
+calculating the local moran of every peak hours trips
 
 #### Weekday Morning
 
@@ -624,8 +654,18 @@ tm_shape(lisa_sig_EE) +
 
 #### LISA MAP
 
+plotting the LISA map
+
 ```{r}
 tmap_arrange(weekday_morning_moran, weekday_afternoon_moran,
              weekend_morning_moran, weekend_evening_moran,
              ncol = 2, nrow = 2)
 ```
+
+The graph above shows the local moran association between each hexagonal grids using the inverse distance weight.
+
+The difference between week and and weekday is that on the weekend there are some similar clustering of low-low and high-high spread across the country, however on weekday most of it are only either high-low and low-high mean dispersion.
+
+Can also be seen on the top 2 graph for weekday, on morning the dispersion happens in outer Singapore or suburban area, on the other hand on the afternoon the dispersion happen more toward the center. This is following the fact that early in the morning people go to work or school and go home in the after noon.
+
+On the weekend graphs can be seen that most of the dispersion and clustering happend in the central area in the morning and a bit spread out around during the night.
