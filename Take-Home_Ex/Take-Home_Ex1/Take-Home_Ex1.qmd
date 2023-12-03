@@ -662,6 +662,8 @@ tmap_arrange(weekday_morning_moran, weekday_afternoon_moran,
              ncol = 2, nrow = 2)
 ```
 
+## Conclusion
+
 The graph above shows the local moran association between each hexagonal grids using the inverse distance weight.
 
 The difference between week and and weekday is that on the weekend there are some similar clustering of low-low and high-high spread across the country, however on weekday most of it are only either high-low and low-high mean dispersion.
