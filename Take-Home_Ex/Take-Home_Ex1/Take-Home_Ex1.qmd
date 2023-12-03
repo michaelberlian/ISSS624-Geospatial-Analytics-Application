@@ -668,4 +668,4 @@ The difference between week and and weekday is that on the weekend there are som
 
 Can also be seen on the top 2 graph for weekday, on morning the dispersion happens in outer Singapore or suburban area, on the other hand on the afternoon the dispersion happen more toward the center. This is following the fact that early in the morning people go to work or school and go home in the after noon.
 
-On the weekend graphs can be seen that most of the dispersion and clustering happend in the central area in the morning and a bit spread out around during the night.
+On the weekend graphs can be seen that most of the dispersion and clustering happened in the central area in the morning and a bit spread out around during the night.
