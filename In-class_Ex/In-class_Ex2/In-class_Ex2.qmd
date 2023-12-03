@@ -70,6 +70,10 @@ lisa <- wm_q %>%
   unnest(local_moran)
 ```
 
+```{r}
+
+```
+
 ## Time Series Cube
 
 utilising sfdep()
