@@ -1,0 +1,20 @@
+---
+title: "Take-Home Exercise 2"
+date: "9 December 2023"
+date-modified: "last-modified"
+---
+
+1.  using HDB dwelling as proxy population
+2.  population : pop = dwelling, pop = dwelling based on hdb type
+3.  weekday morning
+    1.  propulsiveness : population
+    2.  attraction : work places, train station, schools
+4.  weekday afternoon
+    1.  propulsiveness : work places
+    2.  attraction : population
+5.  weekend morning
+    1.  propulsiveness :
+    2.  attraction
+6.  weekend evening
+    1.  propulsiveness
+    2.  attraction
