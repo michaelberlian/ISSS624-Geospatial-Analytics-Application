@@ -7,8 +7,8 @@ date-modified: "last-modified"
 1.  using HDB dwelling as proxy population
 2.  population : pop = dwelling, pop = dwelling based on hdb type
 3.  weekday morning
-    1.  propulsiveness : population
-    2.  attraction : work places, train station, schools
+    1.  propulsiveness : population, number of hdb, and number of bus stop
+    2.  attraction : business, retail, school
 4.  weekday afternoon
     1.  propulsiveness : work places
     2.  attraction : population
@@ -18,3 +18,533 @@ date-modified: "last-modified"
 6.  weekend evening
     1.  propulsiveness
     2.  attraction
+
+## Getting started
+
+importing package to accommodate data wrangling and visualisation
+
+```{r}
+pacman::p_load(sf, tmap, sfdep, tidyverse, stplanr, sp, reshape2, httr)
+```
+
+## Data Preparation
+
+Importing several data for analysis
+
+### Bus Stop
+
+importing Bus stop locations
+
+```{r}
+busStops <- st_read(dsn = "data/geospatial",
+                 layer = "BusStop") %>%
+  st_transform(crs = 3414)
+```
+
+```{r}
+tmap_mode("view")
+tm_shape(busStops) +
+  tm_dots() +
+tm_view(set.zoom.limits = c(11,14))
+
+tmap_mode("plot")
+```
+
+### Creating Hexagonal Grid
+
+creating hexagonal grid as the base of analysis. The grid size is 750m, the distance between parallel edges.
+
+```{r}
+grid = st_make_grid(busStops, c(750), what = "polygons", square = FALSE)
+# To sf and add grid ID
+grid_sf = st_sf(grid) %>%
+  # add grid ID
+  mutate(grid_id = 1:length(lengths(grid)))
+```
+
+```{r}
+grid_sf$n_colli = lengths(st_intersects(grid_sf, busStops))
+
+# remove grid without value of 0 (i.e. no points in side that grid)
+grid_count = filter(grid_sf,n_colli > 0 )
+```
+
+```{r}
+tmap_mode("view")
+
+tm_shape(grid_count) +
+  tm_fill(
+    col = "n_colli",
+    palette = "Blues",
+    style = "cont",
+    title = "Number of collisions",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.6,
+    popup.vars = c(
+      "Number of collisions: " = "n_colli"
+    ),
+    popup.format = list(
+      n_colli = list(format = "f", digits = 0)
+    )
+  ) +
+  tm_borders(col = "grey40", lwd = 0.7) +
+tm_view(set.zoom.limits = c(11,14))
+
+tmap_mode("plot")
+```
+
+removing bus stop outside of Singapore
+
+```{r}
+#| eval: false
+grid_count_rm <- grid_count %>%
+  filter(!grid_id == 942,
+         !grid_id == 984,
+         !grid_id == 819)
+```
+
+saving grid to RDS
+
+```{r}
+#| eval: false
+write_rds(grid_count_rm, "data/rds/grid.rds")
+rm(list = c('grid_count','grid_count_rm','grid_sf'))
+```
+
+Reload Grid
+
+```{r}
+grid = read_rds('data/rds/grid.rds')
+```
+
+### Trip Data
+
+importing trip data for trips analysis
+
+```{r}
+busTrips <- read_csv("data/aspatial/origin_destination_bus_202308.csv")
+# busTrips <- read_csv("data/aspatial/origin_destination_bus_202309.csv")
+# busTrips <- read_csv("data/aspatial/origin_destination_bus_202310.csv")
+
+busTrips$ORIGIN_PT_CODE <- as.factor(busTrips$ORIGIN_PT_CODE)
+busTrips$DESTINATION_PT_CODE <- as.factor(busTrips$DESTINATION_PT_CODE)
+```
+
+### MPSZ Data
+
+importin mpsz data for visualisation
+
+```{r}
+mpsz <- st_read(dsn = "data/geospatial",
+                 layer = "MP14_SUBZONE_WEB_PL") %>%
+  st_transform(crs = 3414)
+```
+
+```{r}
+tmap_mode('plot')
+tm_shape(mpsz) +
+  tm_polygons() +
+tm_shape(grid) +
+  tm_fill(
+    col = "n_colli",
+    palette = "Blues",
+    style = "cont",
+    title = "Number of collisions",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.6,
+    popup.vars = c(
+      "Number of collisions: " = "n_colli"
+    ),
+    popup.format = list(
+      n_colli = list(format = "f", digits = 0)
+    )
+  ) +
+  tm_borders(col = "grey40", lwd = 0.7)
+```
+
+### Population data based on HDB
+
+from HDB data, proxy population was counted from total dwelling units. This population will be used as propulsiveness data.
+
+```{r}
+hdb <- read_csv('data/aspatial/hdb.csv')
+```
+
+```{r}
+hdb_sf <- hdb %>%
+  rename(latitude = lat, 
+         longitude = lng) %>%
+  select(latitude, longitude, total_dwelling_units) %>%
+  st_as_sf(coords = c('longitude','latitude'), 
+           crs=4326) %>%
+  st_transform(crs = 3414)
+```
+
+### Business, Retail, and School Data
+
+business and retail dataset will be used as attractiveness data.
+
+```{r}
+business <- st_read(dsn = "data/geospatial",
+                 layer = "Business") %>%
+  st_transform(crs = 3414)
+retail <- st_read(dsn = "data/geospatial",
+                  layer = "Retails") %>%
+  st_transform(crs = 3414)
+```
+
+the geospatial school data will be retrieve using the postal code. By geocoding using onemap API. The General information of school csv will contain the postal code and using the onemap API, it will retrieve and give us the longitude and latitude coordinate of the school. The schools postcode where the API could not retrieve the coordinate will be stored at not_found and later be filled manually.
+
+```{r}
+#| eval: false
+url <- "https://www.onemap.gov.sg/api/common/elastic/search"
+
+csv <- read_csv('data/aspatial/Generalinformationofschools.csv')
+postcodes <- csv$postal_code
+
+found <- data.frame()
+not_found <- data.frame()
+
+for(postcode in postcodes){
+  query <- list('searchVal'=postcode, 'returnGeom'='Y','getAddrDetails'='Y','pageNum'='1')
+  res <- GET(url,query=query)
+  
+  if((content(res)$found) != 0){
+    found <- rbind(found,data.frame(content(res))[4:13])
+  } else {
+    not_found <- data.frame(postcode)
+  }
+}
+```
+
+```{r}
+#| eval: false
+merged <- merge(csv, found, by.x = 'postal_code', by.y = 'results.POSTAL', all = TRUE)
+write.csv(merged, file = 'data/aspatial/schools.csv')
+write.csv(not_found, file = 'data/aspatial/not_found.csv')
+```
+
+```{r}
+schools <- read_csv(file = 'data/aspatial/schools.csv')
+schools <- schools %>%
+  rename(latitude = results.LATITUDE, 
+         longitude = results.LONGITUDE) %>%
+  select(postal_code, school_name, latitude, longitude)
+```
+
+transforming the data from longitude and latitude data into geometry
+
+```{r}
+schools_sf <- st_as_sf(schools, 
+                       coords = c('longitude','latitude'), 
+                       crs=4326) %>%
+  st_transform(crs = 3414)
+```
+
+## OD Flow 
+
+### Trip count
+
+calculating trip count of weekday morning
+
+```{r}
+#| eval: false
+busTripsDayMorning <- busTrips %>%
+  filter(DAY_TYPE == "WEEKDAY", 
+         TIME_PER_HOUR >= 6, 
+         TIME_PER_HOUR <= 9) %>%
+  select(ORIGIN_PT_CODE,DESTINATION_PT_CODE,TOTAL_TRIPS) %>%
+  rename(DESTIN_PT_CODE = DESTINATION_PT_CODE)
+```
+
+### Creating the Flow Data
+
+making object to represent bus stop location to a grid
+
+```{r}
+#| eval: false
+busStops_grid <- st_intersection(busStops, grid) %>%
+  select(BUS_STOP_N, grid_id) %>%
+  st_drop_geometry()
+```
+
+we are going to change the trips identity from bus stops code to grid id
+
+```{r}
+#| eval: false
+od_data <- left_join(busTripsDayMorning , busStops_grid,
+            by = c("ORIGIN_PT_CODE" = "BUS_STOP_N")) %>%
+  rename(ORIGIN_BS = ORIGIN_PT_CODE,
+         ORIGIN_GRID = grid_id,
+         DESTIN_BS = DESTIN_PT_CODE)
+```
+
+removing duplicates
+
+```{r}
+#| eval: false
+duplicate <- od_data %>%
+  group_by_all() %>%
+  filter(n()>1) %>%
+  ungroup()
+```
+
+```{r}
+#| eval: false
+od_data <- unique(od_data)
+```
+
+```{r}
+#| eval: false
+od_data <- left_join(od_data , busStops_grid,
+            by = c("DESTIN_BS" = "BUS_STOP_N")) 
+```
+
+```{r}
+#| eval: false
+duplicate <- od_data %>%
+  group_by_all() %>%
+  filter(n()>1) %>%
+  ungroup()
+```
+
+```{r}
+#| eval: false
+od_data <- unique(od_data)
+```
+
+grouping the trips based on origin grid and destination grid
+
+```{r}
+#| eval: false
+od_data <- od_data %>%
+  rename(DESTIN_GRID = grid_id) %>%
+  drop_na() %>%
+  group_by(ORIGIN_GRID, DESTIN_GRID) %>%
+  summarise(TRIPS = sum(TOTAL_TRIPS))
+```
+
+```{r}
+#| eval: false
+write_rds(od_data, "data/rds/od_data.rds")
+```
+
+```{r}
+od_data <- read_rds("data/rds/od_data.rds")
+```
+
+Creating the flow
+
+first, we remove intra zonal flow
+
+```{r}
+od_data1 <- od_data[od_data$ORIGIN_GRID!=od_data$DESTIN_GRID,]
+```
+
+```{r}
+flowLine <- od2line(flow = od_data1, 
+                    zones = grid,
+                    zone_code = "grid_id")
+```
+
+### Visualising O-D Flow
+
+```{r}
+# tm_shape(mpsz) +
+#   tm_polygons() +
+tm_shape(grid) +
+  tm_polygons() +
+flowLine %>%  
+  filter(TRIPS >= 5000) %>%
+tm_shape() +
+  tm_lines(lwd = "TRIPS",
+           style = "quantile",
+           scale = c(0.1, 1, 3, 5, 7, 10),
+           n = 6,
+           alpha = 0.3)
+```
+
+## Spatial Interaction Model
+
+### Propulsiveness Data Wrangling
+
+there will be 3 propulsiveness variable embedded into the origin grid, they are:
+
+1.  Population per grid
+
+    ```{r}
+    #| eval: false
+    grid_prop <- st_join(hdb_sf,grid, join = st_within) %>%
+      select(total_dwelling_units, grid_id) %>%
+      st_drop_geometry() %>%
+      rename(POPULATION_COUNT = total_dwelling_units)
+    grid_prop <- grid %>%
+      left_join(grid_prop, by = c('grid_id' = 'grid_id')) 
+
+    grid_prop$POPULATION_COUNT <- ifelse(
+      is.na(grid_prop$POPULATION_COUNT),
+      0.99, grid_prop$POPULATION_COUNT)
+
+    grid_prop <- grid_prop %>%
+      group_by(grid_id, n_colli) %>%
+      summarise(POPULATION_COUNT = sum(POPULATION_COUNT))
+    ```
+
+2.  Number of HDB per grid
+
+    ```{r}
+    #| eval: false
+    grid_prop$HDB_COUNT <- lengths (
+      st_intersects(
+        grid,hdb_sf))
+
+    grid_prop$HDB_COUNT <- ifelse(
+      grid_prop$HDB_COUNT == 0,
+      0.99, grid_prop$HDB_COUNT)
+    ```
+
+3.  Number of Bus Station per grid
+
+    ```{r}
+    #| eval: false
+    grid_prop <- grid_prop %>%
+      st_drop_geometry() %>%
+      rename(BUS_N = n_colli)
+
+    grid_prop$BUS_N <- ifelse(
+      grid_prop$BUS_N == 0,
+      0.99, grid_prop$BUS_N)
+    ```
+
+    ```{r}
+    #| eval: false
+    write_rds(grid_prop,'data/rds/grid_prop.rds')
+    ```
+
+    ```{r}
+    grid_prop <- read_rds('data/rds/grid_prop.rds')
+    ```
+
+    putting all the variable into flow data
+
+    ```{r}
+    flowLine_prop <- flowLine %>%
+      left_join(grid_prop, by = c('ORIGIN_GRID' = 'grid_id'))
+    ```
+
+### Attractiveness Data Wrangling
+
+there will be 3 attractiveness variable embedded into the destination grid, they are:
+
+1.  number of School per grid
+
+    ```{r}
+    #| eval: false
+    grid_att <- grid %>%
+      select (-c(n_colli)) %>%
+      st_drop_geometry()
+    grid_att$SCHOOL_COUNT <- lengths(
+      st_intersects(grid,schools_sf)
+    )
+
+    grid_att$SCHOOL_COUNT <- ifelse(
+      grid_att$SCHOOL_COUNT == 0,
+      0.99, grid_att$SCHOOL_COUNT)
+    ```
+
+2.  number of Business per grid
+
+    ```{r}
+    #| eval: false
+    grid_att$BUSINESS_COUNT <- lengths(
+      st_intersects(grid,business)
+    )
+
+    grid_att$BUSINESS_COUNT <- ifelse(
+      grid_att$BUSINESS_COUNT == 0,
+      0.99, grid_att$BUSINESS_COUNT)
+    ```
+
+3.  number of Retail per grid
+
+    ```{r}
+    #| eval: false
+    grid_att$RETAIL_COUNT <- lengths(
+      st_intersects(grid,retail)
+    )
+
+    grid_att$RETAIL_COUNT <- ifelse(
+      grid_att$RETAIL_COUNT == 0,
+      0.99, grid_att$RETAIL_COUNT
+    )
+    ```
+
+    ```{r}
+    #| eval: false
+    write_rds(grid_att, "data/rds/grid_att.rds") 
+    ```
+
+    ```{r}
+    grid_att <- read_rds('data/rds/grid_att.rds')
+    ```
+
+### Calculating the distance between grid
+
+```{r}
+#| eval: false
+grid_sp <- grid %>%
+  select (-c(n_colli)) %>%
+  as('Spatial')
+grid_sp
+```
+
+```{r}
+#| eval: false
+dist <- spDists(grid_sp, 
+                longlat = FALSE)
+
+head(dist, n=c(10, 10))
+```
+
+```{r}
+#| eval: false
+grid_ids <- grid_sp$grid_id
+```
+
+```{r}
+#| eval: false
+colnames(dist) <- paste0(grid_ids)
+rownames(dist) <- paste0(grid_ids)
+```
+
+```{r}
+#| eval: false
+distPair <- melt(dist) %>%
+  rename(dist = value)
+head(distPair, 10)
+```
+
+```{r}
+#| eval: false
+distPair %>%
+  filter(dist > 0) 
+
+distPair$dist <- ifelse(distPair$dist == 0,
+                        50, distPair$dist)
+
+distPair <- distPair %>%
+  rename(orig = Var1,
+         dest = Var2)
+```
+
+```{r}
+#| eval: false
+write_rds(distPair, "data/rds/distPair.rds") 
+```
+
+```{r}
+distPair <- read_rds('data/rds/distPair.rds')
+summary(distPair)
+```

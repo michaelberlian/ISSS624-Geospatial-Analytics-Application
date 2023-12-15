@@ -30,7 +30,7 @@ tm_shape(busStops) +
 
 ### Hexagonal Grid Creation
 
-creating our own hexagonal gridd
+creating our own hexagonal grid
 
 ```{r}
 grid = st_make_grid(busStops, c(500), what = "polygons", square = FALSE)
