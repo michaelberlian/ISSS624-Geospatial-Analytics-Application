@@ -355,7 +355,7 @@ tm_shape() +
 O-D Flow filtered for 10000 or more trips
 
 ```{r}
-tm_shape(mpsz) +
+base_flow <- tm_shape(mpsz) +
   tm_polygons(col = 'grey', border.alpha = 0.1) +
 tm_shape(grid) +
   tm_polygons() +
@@ -367,6 +367,7 @@ tm_shape() +
            scale = c(0.1, 1, 3, 5, 7, 10),
            n = 6,
            alpha = 0.3)
+base_flow
 ```
 
 O-D Flow filtered for 30000 or more trips
@@ -468,15 +469,18 @@ left_join(grid_prop, by = c('ORIGIN_GRID' = 'grid_id'))
 grid_plot <- grid %>%
   select(grid_id) %>%
   left_join(grid_prop)
+```
 
-tm_shape(mpsz) +
+```{r}
+
+plot_pop <- tm_shape(mpsz) +
   tm_polygons(col = 'grey', border.alpha = 0.1) +
 tm_shape(grid_plot) +
   tm_fill(
     col = "POPULATION_COUNT",
     palette = "Blues",
     style = "cont",
-    title = "Number of Bus Station",
+    title = "Population",
     id = "grid_id",
     showNA = FALSE,
     alpha = 0.6,
@@ -489,7 +493,61 @@ tm_shape() +
            style = "quantile",
            scale = c(0.1, 1, 3, 5, 7, 10),
            n = 6,
-           alpha = 0.3) 
+           alpha = 0.3) +
+  tm_layout(legend.text.size = 0.35)
+
+
+plot_hdb <- tm_shape(mpsz) +
+  tm_polygons(col = 'grey', border.alpha = 0.1) +
+tm_shape(grid_plot) +
+  tm_fill(
+    col = "HDB_COUNT",
+    palette = "Blues",
+    style = "cont",
+    title = "Number of HDB",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.6,
+  ) +
+  tm_borders(col = "grey40", lwd = 0.7) +
+flowLine %>%  
+  filter(TRIPS >= 10000) %>%
+tm_shape() +
+  tm_lines(lwd = "TRIPS",
+           style = "quantile",
+           scale = c(0.1, 1, 3, 5, 7, 10),
+           n = 6,
+           alpha = 0.3) +
+  tm_layout(legend.text.size = 0.35)
+
+plot_bus <- tm_shape(mpsz) +
+  tm_polygons(col = 'grey', border.alpha = 0.1) +
+tm_shape(grid_plot) +
+  tm_fill(
+    col = "BUS_N",
+    palette = "Blues",
+    style = "cont",
+    title = "Number of Bus Stop",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.6,
+  ) +
+  tm_borders(col = "grey40", lwd = 0.7) +
+flowLine %>%  
+  filter(TRIPS >= 10000) %>%
+tm_shape() +
+  tm_lines(lwd = "TRIPS",
+           style = "quantile",
+           scale = c(0.1, 1, 3, 5, 7, 10),
+           n = 6,
+           alpha = 0.3) +
+  tm_layout(legend.text.size = 0.35)
+```
+
+```{r}
+tmap_mode("plot")
+tmap_arrange(base_flow, plot_pop, plot_hdb, plot_bus,
+            ncol=2, nrow=2)
 ```
 
 ### Attractiveness Data Wrangling
@@ -559,6 +617,91 @@ putting all the attractiveness variable into flow data
 ```{r}
 flowLine <- flowLine %>%
 left_join(grid_att, by = c('DESTIN_GRID' = 'grid_id'))
+```
+
+```{r}
+grid_plot <- grid %>%
+  select(grid_id) %>%
+  left_join(grid_att)
+```
+
+```{r}
+
+plot_business <- tm_shape(mpsz) +
+  tm_polygons(col = 'grey', border.alpha = 0.1) +
+tm_shape(grid_plot) +
+  tm_fill(
+    col = "BUSINESS_COUNT",
+    palette = "Blues",
+    style = "cont",
+    title = "Number of Business",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.6,
+  ) +
+  tm_borders(col = "grey40", lwd = 0.7) +
+flowLine %>%  
+  filter(TRIPS >= 10000) %>%
+tm_shape() +
+  tm_lines(lwd = "TRIPS",
+           style = "quantile",
+           scale = c(0.1, 1, 3, 5, 7, 10),
+           n = 6,
+           alpha = 0.3) +
+  tm_layout(legend.text.size = 0.35)
+
+
+plot_retail <- tm_shape(mpsz) +
+  tm_polygons(col = 'grey', border.alpha = 0.1) +
+tm_shape(grid_plot) +
+  tm_fill(
+    col = "RETAIL_COUNT",
+    palette = "Blues",
+    style = "cont",
+    title = "Number of Retail Store",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.6,
+  ) +
+  tm_borders(col = "grey40", lwd = 0.7) +
+flowLine %>%  
+  filter(TRIPS >= 10000) %>%
+tm_shape() +
+  tm_lines(lwd = "TRIPS",
+           style = "quantile",
+           scale = c(0.1, 1, 3, 5, 7, 10),
+           n = 6,
+           alpha = 0.3) +
+  tm_layout(legend.text.size = 0.35)
+
+plot_school <- tm_shape(mpsz) +
+  tm_polygons(col = 'grey', border.alpha = 0.1) +
+tm_shape(grid_plot) +
+  tm_fill(
+    col = "SCHOOL_COUNT",
+    palette = "Blues",
+    style = "cont",
+    title = "Number of School",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.6,
+  ) +
+  tm_borders(col = "grey40", lwd = 0.7) +
+flowLine %>%  
+  filter(TRIPS >= 10000) %>%
+tm_shape() +
+  tm_lines(lwd = "TRIPS",
+           style = "quantile",
+           scale = c(0.1, 1, 3, 5, 7, 10),
+           n = 6,
+           alpha = 0.3) +
+  tm_layout(legend.text.size = 0.35)
+```
+
+```{r}
+tmap_mode("plot")
+tmap_arrange(base_flow, plot_business, plot_retail, plot_school,
+            ncol=2, nrow=2)
 ```
 
 ### Calculating the distance between grid
@@ -647,6 +790,8 @@ write_rds(flowLine, "data/rds/flowData.rds")
 
 ```{r}
 flowData <- read_rds("data/rds/flowData.rds")
+flowData$ORIGIN_GRID <- as.factor(flowData$ORIGIN_GRID)
+flowData$DESTIN_GRID <- as.factor(flowData$DESTIN_GRID)
 ```
 
 ## Building Spatial Interaction Models
