@@ -4,27 +4,12 @@ date: "9 December 2023"
 date-modified: "last-modified"
 ---
 
-1.  using HDB dwelling as proxy population
-2.  population : pop = dwelling, pop = dwelling based on hdb type
-3.  weekday morning
-    1.  propulsiveness : population, number of hdb, and number of bus stop
-    2.  attraction : business, retail, school
-4.  weekday afternoon
-    1.  propulsiveness : work places
-    2.  attraction : population
-5.  weekend morning
-    1.  propulsiveness :
-    2.  attraction
-6.  weekend evening
-    1.  propulsiveness
-    2.  attraction
-
 ## Getting started
 
 importing package to accommodate data wrangling and visualisation
 
 ```{r}
-pacman::p_load(sf, tmap, sfdep, tidyverse, stplanr, sp, reshape2, httr)
+pacman::p_load(sf, tmap, sfdep, tidyverse, stplanr, sp, reshape2, httr, performance)
 ```
 
 ## Data Preparation
@@ -144,7 +129,7 @@ mpsz <- st_read(dsn = "data/geospatial",
 ```{r}
 tmap_mode('plot')
 tm_shape(mpsz) +
-  tm_polygons() +
+  tm_polygons(col='grey', border.alpha = 0.1) +
 tm_shape(grid) +
   tm_fill(
     col = "n_colli",
@@ -243,7 +228,7 @@ schools_sf <- st_as_sf(schools,
   st_transform(crs = 3414)
 ```
 
-## OD Flow 
+## OD Flow
 
 ### Trip count
 
@@ -351,13 +336,14 @@ flowLine <- od2line(flow = od_data1,
 
 ### Visualising O-D Flow
 
+O-D Flow unfiltered
+
 ```{r}
-# tm_shape(mpsz) +
-#   tm_polygons() +
+tm_shape(mpsz) +
+  tm_polygons(col = 'grey', border.alpha = 0.1) +
 tm_shape(grid) +
   tm_polygons() +
-flowLine %>%  
-  filter(TRIPS >= 5000) %>%
+flowLine %>%
 tm_shape() +
   tm_lines(lwd = "TRIPS",
            style = "quantile",
@@ -366,13 +352,49 @@ tm_shape() +
            alpha = 0.3)
 ```
 
-## Spatial Interaction Model
+O-D Flow filtered for 10000 or more trips
+
+```{r}
+tm_shape(mpsz) +
+  tm_polygons(col = 'grey', border.alpha = 0.1) +
+tm_shape(grid) +
+  tm_polygons() +
+flowLine %>%  
+  filter(TRIPS >= 10000) %>%
+tm_shape() +
+  tm_lines(lwd = "TRIPS",
+           style = "quantile",
+           scale = c(0.1, 1, 3, 5, 7, 10),
+           n = 6,
+           alpha = 0.3)
+```
+
+O-D Flow filtered for 30000 or more trips
+
+```{r}
+tm_shape(mpsz) +
+  tm_polygons(col = 'grey', border.alpha = 0.1) +
+tm_shape(grid) +
+  tm_polygons() +
+flowLine %>%  
+  filter(TRIPS >= 30000) %>%
+tm_shape() +
+  tm_lines(lwd = "TRIPS",
+           style = "quantile",
+           scale = c(3, 5, 7, 10),
+           n = 4,
+           alpha = 0.3)
+```
+
+## Spatial Interaction Model Data Preparation
 
 ### Propulsiveness Data Wrangling
 
 there will be 3 propulsiveness variable embedded into the origin grid, they are:
 
 1.  Population per grid
+
+    total number of dwelling will be a representation of the number of population in the grid
 
     ```{r}
     #| eval: false
@@ -387,12 +409,18 @@ there will be 3 propulsiveness variable embedded into the origin grid, they are:
       is.na(grid_prop$POPULATION_COUNT),
       0.99, grid_prop$POPULATION_COUNT)
 
+    grid_prop$POPULATION_COUNT <- ifelse(
+      grid_prop$POPULATION_COUNT == 0,
+      0.99, grid_prop$POPULATION_COUNT)
+
     grid_prop <- grid_prop %>%
       group_by(grid_id, n_colli) %>%
       summarise(POPULATION_COUNT = sum(POPULATION_COUNT))
     ```
 
 2.  Number of HDB per grid
+
+    Number of HDB per grid will be counted by using intersection between HDB point with the grid hexagonal polygon
 
     ```{r}
     #| eval: false
@@ -406,6 +434,8 @@ there will be 3 propulsiveness variable embedded into the origin grid, they are:
     ```
 
 3.  Number of Bus Station per grid
+
+    Number of bus station per grid will be using the number of collision computed previously when previewing the hexagons
 
     ```{r}
     #| eval: false
@@ -427,18 +457,48 @@ there will be 3 propulsiveness variable embedded into the origin grid, they are:
     grid_prop <- read_rds('data/rds/grid_prop.rds')
     ```
 
-    putting all the variable into flow data
+putting all the propulsiveness variable into flow data
 
-    ```{r}
-    flowLine_prop <- flowLine %>%
-      left_join(grid_prop, by = c('ORIGIN_GRID' = 'grid_id'))
-    ```
+```{r}
+flowLine <- flowLine %>%
+left_join(grid_prop, by = c('ORIGIN_GRID' = 'grid_id'))
+```
+
+```{r}
+grid_plot <- grid %>%
+  select(grid_id) %>%
+  left_join(grid_prop)
+
+tm_shape(mpsz) +
+  tm_polygons(col = 'grey', border.alpha = 0.1) +
+tm_shape(grid_plot) +
+  tm_fill(
+    col = "POPULATION_COUNT",
+    palette = "Blues",
+    style = "cont",
+    title = "Number of Bus Station",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.6,
+  ) +
+  tm_borders(col = "grey40", lwd = 0.7) +
+flowLine %>%  
+  filter(TRIPS >= 10000) %>%
+tm_shape() +
+  tm_lines(lwd = "TRIPS",
+           style = "quantile",
+           scale = c(0.1, 1, 3, 5, 7, 10),
+           n = 6,
+           alpha = 0.3) 
+```
 
 ### Attractiveness Data Wrangling
 
 there will be 3 attractiveness variable embedded into the destination grid, they are:
 
-1.  number of School per grid
+1.  Number of School per grid
+
+    Number of School per grid will be counted by using intersection between school point with the grid hexagonal polygon
 
     ```{r}
     #| eval: false
@@ -454,7 +514,9 @@ there will be 3 attractiveness variable embedded into the destination grid, they
       0.99, grid_att$SCHOOL_COUNT)
     ```
 
-2.  number of Business per grid
+2.  Number of Business per grid
+
+    Number of Business per grid will be counted by using intersection between business point with the grid hexagonal polygon
 
     ```{r}
     #| eval: false
@@ -467,7 +529,9 @@ there will be 3 attractiveness variable embedded into the destination grid, they
       0.99, grid_att$BUSINESS_COUNT)
     ```
 
-3.  number of Retail per grid
+3.  Number of Retail per grid
+
+    Number of Retail per grid will be counted by using intersection between retail point with the grid hexagonal polygon
 
     ```{r}
     #| eval: false
@@ -490,7 +554,16 @@ there will be 3 attractiveness variable embedded into the destination grid, they
     grid_att <- read_rds('data/rds/grid_att.rds')
     ```
 
+putting all the attractiveness variable into flow data
+
+```{r}
+flowLine <- flowLine %>%
+left_join(grid_att, by = c('DESTIN_GRID' = 'grid_id'))
+```
+
 ### Calculating the distance between grid
+
+making the grids into spatial and contain column grid id and the geomtery
 
 ```{r}
 #| eval: false
@@ -500,6 +573,8 @@ grid_sp <- grid %>%
 grid_sp
 ```
 
+using spDists function of sp package to calculate the distance between polygon centroid creating a matrix
+
 ```{r}
 #| eval: false
 dist <- spDists(grid_sp, 
@@ -507,6 +582,8 @@ dist <- spDists(grid_sp,
 
 head(dist, n=c(10, 10))
 ```
+
+getting the grid_id to label the matrix column and row
 
 ```{r}
 #| eval: false
@@ -519,6 +596,8 @@ colnames(dist) <- paste0(grid_ids)
 rownames(dist) <- paste0(grid_ids)
 ```
 
+using melt to transfrom the matrix into column based for easier join with the main flow data
+
 ```{r}
 #| eval: false
 distPair <- melt(dist) %>%
@@ -526,10 +605,13 @@ distPair <- melt(dist) %>%
 head(distPair, 10)
 ```
 
+view the summary of distPair and then change the minimum value of 0 to 50 for the intra-zonal distance to prevent error in modelling.
+
 ```{r}
 #| eval: false
 distPair %>%
-  filter(dist > 0) 
+  filter(dist > 0) %>%
+  summary()
 
 distPair$dist <- ifelse(distPair$dist == 0,
                         50, distPair$dist)
@@ -547,4 +629,117 @@ write_rds(distPair, "data/rds/distPair.rds")
 ```{r}
 distPair <- read_rds('data/rds/distPair.rds')
 summary(distPair)
+```
+
+getting the distance column into flow data
+
+```{r}
+flowLine <- flowLine %>%
+left_join(distPair, by = c('DESTIN_GRID' = 'dest', 'ORIGIN_GRID' = 'orig'))
+```
+
+saving the flow data after combining all the needed variable
+
+```{r}
+#| eval: false
+write_rds(flowLine, "data/rds/flowData.rds") 
+```
+
+```{r}
+flowData <- read_rds("data/rds/flowData.rds")
+```
+
+## Building Spatial Interaction Models
+
+### Unconstrained Model
+
+```{r}
+uncSIM <- glm(formula = TRIPS ~ 
+                log(POPULATION_COUNT) +
+                log(HDB_COUNT) +
+                log(BUS_N) +
+                log(BUSINESS_COUNT) +
+                log(RETAIL_COUNT) +
+                log(SCHOOL_COUNT) +
+                log(dist),
+              family = poisson(link = "log"),
+              data = flowData,
+              na.action = na.exclude)
+summary(uncSIM)
+```
+
+### Origin Constrained Model
+
+```{r}
+orcSIM <- glm(formula = TRIPS ~ 
+                ORIGIN_GRID +
+                log(BUSINESS_COUNT) +
+                log(RETAIL_COUNT) +
+                log(SCHOOL_COUNT) +
+                log(dist),
+              family = poisson(link = "log"),
+              data = flowData,
+              na.action = na.exclude)
+summary(orcSIM)
+```
+
+### Destination Constrained Model
+
+```{r}
+decSIM <- glm(formula = TRIPS ~ 
+                log(POPULATION_COUNT) +
+                log(HDB_COUNT) +
+                log(BUS_N) +
+                DESTIN_GRID +
+                log(dist),
+              family = poisson(link = "log"),
+              data = flowData,
+              na.action = na.exclude)
+summary(decSIM)
+```
+
+### Doubly Constrained Model
+
+```{r}
+dbcSIM <- glm(formula = TRIPS ~ 
+                ORIGIN_GRID + 
+                DESTIN_GRID + 
+                log(dist),
+              family = poisson(link = "log"),
+              data = flowData,
+              na.action = na.exclude)
+summary(dbcSIM)
+```
+
+### Model Comparison
+
+#### RMSE
+
+```{r}
+model_list <- list(unconstrained=uncSIM,
+                   originConstrained=orcSIM,
+                   destinationConstrained=decSIM,
+                   doublyConstrained=dbcSIM)
+```
+
+```{r}
+compare_performance(model_list,
+                    metrics = "RMSE")
+```
+
+#### R-Squared
+
+```{r}
+CalcRSquared <- function(observed,estimated){
+  r <- cor(observed,estimated)
+  R2 <- r^2
+  R2
+}
+```
+
+```{r}
+CalcRSquared(uncSIM$data$TRIPS, uncSIM$fitted.values)
+CalcRSquared(orcSIM$data$TRIPS, orcSIM$fitted.values)
+CalcRSquared(decSIM$data$TRIPS, decSIM$fitted.values)
+CalcRSquared(dbcSIM$data$TRIPS, dbcSIM$fitted.values)
 ```
