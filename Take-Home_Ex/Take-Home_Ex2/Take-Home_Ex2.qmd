@@ -6,10 +6,10 @@ date-modified: "last-modified"
 
 ## Getting started
 
-importing package to accommodate data wrangling and visualisation
+Importing package to accommodate data wrangling, API, and visualisation
 
 ```{r}
-pacman::p_load(sf, tmap, sfdep, tidyverse, stplanr, sp, reshape2, httr, performance)
+pacman::p_load(sf, tmap, sfdep, tidyverse, stplanr, sp, reshape2, httr, performance, ggpubr)
 ```
 
 ## Data Preparation
@@ -18,7 +18,7 @@ Importing several data for analysis
 
 ### Bus Stop
 
-importing Bus stop locations
+Importing Bus stop locations
 
 ```{r}
 busStops <- st_read(dsn = "data/geospatial",
@@ -37,7 +37,7 @@ tmap_mode("plot")
 
 ### Creating Hexagonal Grid
 
-creating hexagonal grid as the base of analysis. The grid size is 750m, the distance between parallel edges.
+Creating hexagonal grid as the base of analysis. The grid size is 750m, the distance between parallel edges.
 
 ```{r}
 grid = st_make_grid(busStops, c(750), what = "polygons", square = FALSE)
@@ -79,7 +79,7 @@ tm_view(set.zoom.limits = c(11,14))
 tmap_mode("plot")
 ```
 
-removing bus stop outside of Singapore
+Removing bus stop outside of Singapore
 
 ```{r}
 #| eval: false
@@ -89,7 +89,7 @@ grid_count_rm <- grid_count %>%
          !grid_id == 819)
 ```
 
-saving grid to RDS
+Saving grid to RDS to easier next runs
 
 ```{r}
 #| eval: false
@@ -105,7 +105,7 @@ grid = read_rds('data/rds/grid.rds')
 
 ### Trip Data
 
-importing trip data for trips analysis
+Importing trip data for trips analysis
 
 ```{r}
 busTrips <- read_csv("data/aspatial/origin_destination_bus_202308.csv")
@@ -118,7 +118,7 @@ busTrips$DESTINATION_PT_CODE <- as.factor(busTrips$DESTINATION_PT_CODE)
 
 ### MPSZ Data
 
-importin mpsz data for visualisation
+Importing mpsz data for visualisation purpose
 
 ```{r}
 mpsz <- st_read(dsn = "data/geospatial",
@@ -151,7 +151,7 @@ tm_shape(grid) +
 
 ### Population data based on HDB
 
-from HDB data, proxy population was counted from total dwelling units. This population will be used as propulsiveness data.
+From HDB data, proxy population was counted from total dwelling units. This population will be used as propulsiveness data.
 
 ```{r}
 hdb <- read_csv('data/aspatial/hdb.csv')
@@ -169,7 +169,7 @@ hdb_sf <- hdb %>%
 
 ### Business, Retail, and School Data
 
-business and retail dataset will be used as attractiveness data.
+Business and retail datasets will be used as attractiveness data.
 
 ```{r}
 business <- st_read(dsn = "data/geospatial",
@@ -180,7 +180,7 @@ retail <- st_read(dsn = "data/geospatial",
   st_transform(crs = 3414)
 ```
 
-the geospatial school data will be retrieve using the postal code. By geocoding using onemap API. The General information of school csv will contain the postal code and using the onemap API, it will retrieve and give us the longitude and latitude coordinate of the school. The schools postcode where the API could not retrieve the coordinate will be stored at not_found and later be filled manually.
+The geospatial school data will be retrieve using the postal code, by geocoding using onemap API. The General information of school csv will contain the postal code and using the onemap API, it will retrieve and give us the longitude and latitude coordinate of the school. The schools postcode where the API could not retrieve the coordinate will be stored at not_found and later be filled manually.
 
 ```{r}
 #| eval: false
@@ -219,7 +219,7 @@ schools <- schools %>%
   select(postal_code, school_name, latitude, longitude)
 ```
 
-transforming the data from longitude and latitude data into geometry
+Transforming the data from longitude and latitude data into geometry
 
 ```{r}
 schools_sf <- st_as_sf(schools, 
@@ -232,7 +232,7 @@ schools_sf <- st_as_sf(schools,
 
 ### Trip count
 
-calculating trip count of weekday morning
+Calculating trip count of weekday morning
 
 ```{r}
 #| eval: false
@@ -246,7 +246,7 @@ busTripsDayMorning <- busTrips %>%
 
 ### Creating the Flow Data
 
-making object to represent bus stop location to a grid
+Making object to represent bus stop location to a grid
 
 ```{r}
 #| eval: false
@@ -255,7 +255,7 @@ busStops_grid <- st_intersection(busStops, grid) %>%
   st_drop_geometry()
 ```
 
-we are going to change the trips identity from bus stops code to grid id
+We are going to change the trips identity from bus stops codes on both origin and destination to grid id as origin grid and destination grid
 
 ```{r}
 #| eval: false
@@ -266,7 +266,7 @@ od_data <- left_join(busTripsDayMorning , busStops_grid,
          DESTIN_BS = DESTIN_PT_CODE)
 ```
 
-removing duplicates
+Removing duplicates
 
 ```{r}
 #| eval: false
@@ -300,7 +300,7 @@ duplicate <- od_data %>%
 od_data <- unique(od_data)
 ```
 
-grouping the trips based on origin grid and destination grid
+Grouping the trips based on origin grid and destination grid
 
 ```{r}
 #| eval: false
@@ -322,7 +322,7 @@ od_data <- read_rds("data/rds/od_data.rds")
 
 Creating the flow
 
-first, we remove intra zonal flow
+First, we remove intra zonal flow
 
 ```{r}
 od_data1 <- od_data[od_data$ORIGIN_GRID!=od_data$DESTIN_GRID,]
@@ -339,7 +339,7 @@ flowLine <- od2line(flow = od_data1,
 O-D Flow unfiltered
 
 ```{r}
-tm_shape(mpsz) +
+unfiltered_flow <- tm_shape(mpsz) +
   tm_polygons(col = 'grey', border.alpha = 0.1) +
 tm_shape(grid) +
   tm_polygons() +
@@ -367,13 +367,12 @@ tm_shape() +
            scale = c(0.1, 1, 3, 5, 7, 10),
            n = 6,
            alpha = 0.3)
-base_flow
 ```
 
 O-D Flow filtered for 30000 or more trips
 
 ```{r}
-tm_shape(mpsz) +
+base3_flow <- tm_shape(mpsz) +
   tm_polygons(col = 'grey', border.alpha = 0.1) +
 tm_shape(grid) +
   tm_polygons() +
@@ -387,11 +386,19 @@ tm_shape() +
            alpha = 0.3)
 ```
 
+```{r}
+tmap_arrange(unfiltered_flow, base_flow, base3_flow,
+          ncol = 2,
+          nrow = 2)
+```
+
+Can be seen the plot above that the more distance between grid the less amount of trips were made between the grid. majority of the intense and crowded trips are clustered into similar places and short distanced.
+
 ## Spatial Interaction Model Data Preparation
 
 ### Propulsiveness Data Wrangling
 
-there will be 3 propulsiveness variable embedded into the origin grid, they are:
+There will be 3 propulsiveness variable embedded into the origin grid, they are:
 
 1.  Population per grid
 
@@ -458,7 +465,7 @@ there will be 3 propulsiveness variable embedded into the origin grid, they are:
     grid_prop <- read_rds('data/rds/grid_prop.rds')
     ```
 
-putting all the propulsiveness variable into flow data
+Putting all the propulsiveness variable into flow data
 
 ```{r}
 flowLine <- flowLine %>%
@@ -550,9 +557,11 @@ tmap_arrange(base_flow, plot_pop, plot_hdb, plot_bus,
             ncol=2, nrow=2)
 ```
 
+Can be seen from the plots, the trips are concentrated on the grid where there is attribute variable such as population and hdb. However, the number of bus stop cant really seen as either push or pull factor since there are some grid with a number of bus stop however don't have much trips.
+
 ### Attractiveness Data Wrangling
 
-there will be 3 attractiveness variable embedded into the destination grid, they are:
+There will be 3 attractiveness variable embedded into the destination grid, they are:
 
 1.  Number of School per grid
 
@@ -612,7 +621,7 @@ there will be 3 attractiveness variable embedded into the destination grid, they
     grid_att <- read_rds('data/rds/grid_att.rds')
     ```
 
-putting all the attractiveness variable into flow data
+Putting all the attractiveness variable into flow data
 
 ```{r}
 flowLine <- flowLine %>%
@@ -704,9 +713,11 @@ tmap_arrange(base_flow, plot_business, plot_retail, plot_school,
             ncol=2, nrow=2)
 ```
 
+On the above plots, can be seen the flow of bus trips. On the right bottom, can be seen that grid that has a lot of flow would also have some number of school in it as well. On the other hand, on the business and retail plot, the similar cannot be seen.
+
 ### Calculating the distance between grid
 
-making the grids into spatial and contain column grid id and the geomtery
+Making the grids into spatial and contain column grid id and the geometery
 
 ```{r}
 #| eval: false
@@ -716,7 +727,7 @@ grid_sp <- grid %>%
 grid_sp
 ```
 
-using spDists function of sp package to calculate the distance between polygon centroid creating a matrix
+Using spDists function of sp package to calculate the distance between polygon centroid creating a matrix
 
 ```{r}
 #| eval: false
@@ -726,7 +737,7 @@ dist <- spDists(grid_sp,
 head(dist, n=c(10, 10))
 ```
 
-getting the grid_id to label the matrix column and row
+Getting the grid_id to label the matrix column and row
 
 ```{r}
 #| eval: false
@@ -739,7 +750,7 @@ colnames(dist) <- paste0(grid_ids)
 rownames(dist) <- paste0(grid_ids)
 ```
 
-using melt to transfrom the matrix into column based for easier join with the main flow data
+Using melt to transfrom the matrix into column based for easier join with the main flow data
 
 ```{r}
 #| eval: false
@@ -748,7 +759,7 @@ distPair <- melt(dist) %>%
 head(distPair, 10)
 ```
 
-view the summary of distPair and then change the minimum value of 0 to 50 for the intra-zonal distance to prevent error in modelling.
+View the summary of distPair and then change the minimum value of 0 to 50 for the intra-zonal distance to prevent error in modelling.
 
 ```{r}
 #| eval: false
@@ -781,7 +792,7 @@ flowLine <- flowLine %>%
 left_join(distPair, by = c('DESTIN_GRID' = 'dest', 'ORIGIN_GRID' = 'orig'))
 ```
 
-saving the flow data after combining all the needed variable
+Saving the flow data after combining all the needed variable
 
 ```{r}
 #| eval: false
@@ -813,6 +824,8 @@ uncSIM <- glm(formula = TRIPS ~
 summary(uncSIM)
 ```
 
+From the above model can be concluded that distance, destiantion business count, and origin population count are not the positive driver of the flow. HDB count and number of bus stop are the propulsiveness variable that increase the flow out. Also, retail count and school count are the attraction variable that contribute to in flow of the grid.
+
 ### Origin Constrained Model
 
 ```{r}
@@ -827,6 +840,8 @@ orcSIM <- glm(formula = TRIPS ~
               na.action = na.exclude)
 summary(orcSIM)
 ```
+
+Similar with unconstrained, origin constrained model can not take business count as their attractiveness of the grid as it gives negative estimates. however, both retail count and school count both has coefficient within 0.21-0.3. Therefore, they can be seen as an attractiveness variable of the grid
 
 ### Destination Constrained Model
 
@@ -843,7 +858,11 @@ decSIM <- glm(formula = TRIPS ~
 summary(decSIM)
 ```
 
+On destination constrained model, the propulsiveness variables that were used are all significant. However, the population count are having negative estimates. While, HDB count and Bus N which is number of bus stop count have estimates within 0.38 - 0.46.
+
 ### Doubly Constrained Model
+
+Here are the Double Constrained Model built.
 
 ```{r}
 dbcSIM <- glm(formula = TRIPS ~ 
@@ -872,6 +891,8 @@ compare_performance(model_list,
                     metrics = "RMSE")
 ```
 
+From all the model built, the model that perform the best is double constrained with the lowest RMSE with 1186.232
+
 #### R-Squared
 
 ```{r}
@@ -888,3 +909,48 @@ CalcRSquared(orcSIM$data$TRIPS, orcSIM$fitted.values)
 CalcRSquared(decSIM$data$TRIPS, decSIM$fitted.values)
 CalcRSquared(dbcSIM$data$TRIPS, dbcSIM$fitted.values)
 ```
+
+Similar with the RMSE result, from the r squared, double constrained model also perform the best among all achieving the highest r square
+
+### Visualising Fitted
+
+```{r}
+flowData$uncTRIPS <- uncSIM$fitted.values
+flowData$orcTRIPS <- orcSIM$fitted.values
+flowData$decTRIPS <- decSIM$fitted.values
+flowData$dbcTRIPS <- dbcSIM$fitted.values
+```
+
+```{r}
+unc_p <- ggplot(data = flowData,
+                aes(x = TRIPS,
+                    y = uncTRIPS)) +
+  geom_point() +
+  geom_smooth(method = lm)
+
+orc_p <- ggplot(data = flowData,
+                aes(x = TRIPS,
+                    y = orcTRIPS)) +
+  geom_point() +
+  geom_smooth(method = lm)
+
+dec_p <- ggplot(data = flowData,
+                aes(x = TRIPS,
+                    y = decTRIPS)) +
+  geom_point() +
+  geom_smooth(method = lm)
+
+dbc_p <- ggplot(data = flowData,
+                aes(x = TRIPS,
+                    y = dbcTRIPS)) +
+  geom_point() +
+  geom_smooth(method = lm)
+```
+
+```{r}
+ggarrange(unc_p, orc_p, dec_p, dbc_p,
+          ncol = 2,
+          nrow = 2)
+```
+
+The result can also be seen from the plot above where the points are more tights on the doubly constrained model. Meanwhile, more loose for the unconstrained, origin constrained, and destination model.
